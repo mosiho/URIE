@@ -1,10 +1,14 @@
 """Application settings loaded from environment / .env."""
 
+import os
 from functools import lru_cache
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# libpq / Vercel-supplied params that asyncpg does not understand.
+_STRIP_URL_QUERY_KEYS = frozenset({"supa", "pgbouncer", "sslmode"})
 
 
 def _normalize_asyncpg_url(value: str) -> str:
@@ -17,18 +21,23 @@ def _normalize_asyncpg_url(value: str) -> str:
     parsed = urlparse(value)
     if parsed.scheme.startswith("postgresql"):
         query = dict(parse_qsl(parsed.query, keep_blank_values=True))
-        # asyncpg uses `ssl=require`, not libpq's sslmode.
         if query.pop("sslmode", None) == "require" and "ssl" not in query:
             query["ssl"] = "require"
+        for key in _STRIP_URL_QUERY_KEYS:
+            query.pop(key, None)
         # Supabase pooler (PgBouncer transaction mode) cannot use prepared statements.
         if ":6543" in value or "pooler.supabase.com" in value:
-            query.setdefault("prepared_statement_cache_size", "0")
+            query["prepared_statement_cache_size"] = "0"
         value = urlunparse(parsed._replace(query=urlencode(query)))
     return value
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=None if os.getenv("VERCEL") else ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     database_url: str = Field(
         default="postgresql+asyncpg://urie_app:urie@localhost:5432/urie",

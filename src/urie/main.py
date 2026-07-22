@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+from urllib.parse import urlparse
+
 from fastapi import FastAPI
 from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse, Response
@@ -80,6 +82,21 @@ def create_app() -> FastAPI:
                 },
             )
         return {"status": "ok", "database": "connected"}
+
+    @app.get("/health/config", include_in_schema=False)
+    async def health_config() -> dict[str, object]:
+        settings = get_settings()
+        parsed = urlparse(settings.database_url)
+        return {
+            "app_env": settings.app_env,
+            "vercel": bool(os.environ.get("VERCEL")),
+            "db_host": parsed.hostname,
+            "db_port": parsed.port,
+            "db_name": parsed.path.lstrip("/") or None,
+            "db_pooler": parsed.port == 6543 or (parsed.hostname or "").endswith("pooler.supabase.com"),
+            "env_has_postgres_url": bool(os.environ.get("POSTGRES_URL")),
+            "env_has_database_url": bool(os.environ.get("DATABASE_URL")),
+        }
 
     # Mount UI after /v1 so API routes take priority.
     if STATIC_DIR.is_dir():
