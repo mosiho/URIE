@@ -1,5 +1,6 @@
 """FastAPI application factory."""
 
+import os
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -31,10 +32,13 @@ class SPAStaticFiles(StaticFiles):
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
-    if settings.app_env == "development":
+    # Local dev only — never auto-create schema on Vercel/serverless cold starts.
+    if settings.app_env == "development" and not os.environ.get("VERCEL"):
         await init_db()
-    yield
-    await engine.dispose()
+    try:
+        yield
+    finally:
+        await engine.dispose()
 
 
 def create_app() -> FastAPI:
@@ -45,8 +49,14 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.include_router(api_router, prefix="/v1")
+
+    @app.get("/health", include_in_schema=False)
+    async def health() -> dict[str, str]:
+        return {"status": "ok"}
+
     # Mount UI after /v1 so API routes take priority.
-    app.mount("/", SPAStaticFiles(directory=str(STATIC_DIR), html=True), name="ui")
+    if STATIC_DIR.is_dir():
+        app.mount("/", SPAStaticFiles(directory=str(STATIC_DIR), html=True), name="ui")
     return app
 
 

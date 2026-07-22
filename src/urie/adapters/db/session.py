@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
 from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from urie.adapters.db.models import Base
 from urie.config import get_settings
 
 settings = get_settings()
-engine = create_async_engine(settings.database_url, echo=False, pool_pre_ping=True)
+_engine_kwargs: dict = {"echo": False, "pool_pre_ping": True}
+if os.environ.get("VERCEL"):
+    # Serverless: avoid persistent pools across invocations.
+    _engine_kwargs["poolclass"] = NullPool
+engine = create_async_engine(settings.database_url, **_engine_kwargs)
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 TENANT_TABLES = (
