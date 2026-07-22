@@ -1,5 +1,7 @@
 """FastAPI application factory."""
 
+from __future__ import annotations
+
 import os
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
@@ -57,8 +59,8 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/health/db", include_in_schema=False)
-    async def health_db() -> JSONResponse | dict[str, str]:
+    @app.get("/health/db", include_in_schema=False, response_model=None)
+    async def health_db():
         try:
             async with async_session_factory() as session:
                 await session.execute(text("SELECT 1"))
@@ -83,8 +85,8 @@ def create_app() -> FastAPI:
             )
         return {"status": "ok", "database": "connected"}
 
-    @app.get("/health/config", include_in_schema=False)
-    async def health_config() -> dict[str, object]:
+    @app.get("/health/config", include_in_schema=False, response_model=None)
+    async def health_config():
         settings = get_settings()
         parsed = urlparse(settings.database_url)
         return {
