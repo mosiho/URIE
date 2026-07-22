@@ -1,6 +1,7 @@
 """Application settings loaded from environment / .env."""
 
 from functools import lru_cache
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,6 +13,17 @@ def _normalize_asyncpg_url(value: str) -> str:
         value = "postgresql+asyncpg://" + value.removeprefix("postgres://")
     elif value.startswith("postgresql://") and "+asyncpg" not in value:
         value = "postgresql+asyncpg://" + value.removeprefix("postgresql://")
+
+    parsed = urlparse(value)
+    if parsed.scheme.startswith("postgresql"):
+        query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        # asyncpg uses `ssl=require`, not libpq's sslmode.
+        if query.pop("sslmode", None) == "require" and "ssl" not in query:
+            query["ssl"] = "require"
+        # Supabase pooler (PgBouncer transaction mode) cannot use prepared statements.
+        if ":6543" in value or "pooler.supabase.com" in value:
+            query.setdefault("prepared_statement_cache_size", "0")
+        value = urlunparse(parsed._replace(query=urlencode(query)))
     return value
 
 
@@ -20,10 +32,18 @@ class Settings(BaseSettings):
 
     database_url: str = Field(
         default="postgresql+asyncpg://urie_app:urie@localhost:5432/urie",
-        validation_alias=AliasChoices("DATABASE_URL", "POSTGRES_URL", "POSTGRES_PRISMA_URL"),
+        validation_alias=AliasChoices(
+            "DATABASE_URL",
+            "POSTGRES_URL",
+            "POSTGRES_PRISMA_URL",
+            "POSTGRES_URL_NON_POOLING",
+        ),
     )
     # Superuser URL for Alembic migrations (optional; falls back to database_url)
-    database_url_admin: str = "postgresql+asyncpg://urie:urie@localhost:5432/urie"
+    database_url_admin: str = Field(
+        default="postgresql+asyncpg://urie:urie@localhost:5432/urie",
+        validation_alias=AliasChoices("DATABASE_URL_ADMIN", "POSTGRES_URL_NON_POOLING"),
+    )
     jwt_secret: str = "dev-secret-change-me"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 1440

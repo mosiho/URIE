@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator
-from typing import Optional
+from typing import Any, Optional
+from uuid import uuid4
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -14,11 +15,29 @@ from urie.adapters.db.models import Base
 from urie.config import get_settings
 
 settings = get_settings()
-_engine_kwargs: dict = {"echo": False, "pool_pre_ping": True}
-if os.environ.get("VERCEL"):
-    # Serverless: avoid persistent pools across invocations.
-    _engine_kwargs["poolclass"] = NullPool
-engine = create_async_engine(settings.database_url, **_engine_kwargs)
+
+
+def _engine_kwargs(database_url: str) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {"echo": False, "pool_pre_ping": True}
+    connect_args: dict[str, Any] = {}
+    is_local = "localhost" in database_url or "127.0.0.1" in database_url
+    is_pooler = ":6543" in database_url or "pooler.supabase.com" in database_url
+
+    if not is_local:
+        connect_args["ssl"] = "require"
+        connect_args["statement_cache_size"] = 0
+        if is_pooler:
+            connect_args["prepared_statement_name_func"] = lambda: f"__asyncpg_{uuid4()}__"
+
+    if os.environ.get("VERCEL"):
+        kwargs["poolclass"] = NullPool
+
+    if connect_args:
+        kwargs["connect_args"] = connect_args
+    return kwargs
+
+
+engine = create_async_engine(settings.database_url, **_engine_kwargs(settings.database_url))
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 TENANT_TABLES = (

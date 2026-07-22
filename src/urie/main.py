@@ -7,12 +7,13 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from starlette.exceptions import HTTPException
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from urie.api.v1.router import api_router
-from urie.adapters.db.session import engine, init_db
+from urie.adapters.db.session import async_session_factory, engine, init_db
 from urie.config import get_settings
+from sqlalchemy import text
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -53,6 +54,32 @@ def create_app() -> FastAPI:
     @app.get("/health", include_in_schema=False)
     async def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/health/db", include_in_schema=False)
+    async def health_db() -> JSONResponse | dict[str, str]:
+        try:
+            async with async_session_factory() as session:
+                await session.execute(text("SELECT 1"))
+                agents = await session.scalar(text("SELECT to_regclass('public.agents')"))
+                if agents is None:
+                    return JSONResponse(
+                        status_code=503,
+                        content={
+                            "status": "error",
+                            "error": "SchemaNotMigrated",
+                            "detail": "Database is reachable but tables are missing. Run: alembic upgrade head",
+                        },
+                    )
+        except Exception as exc:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "error",
+                    "error": type(exc).__name__,
+                    "detail": str(exc)[:300],
+                },
+            )
+        return {"status": "ok", "database": "connected"}
 
     # Mount UI after /v1 so API routes take priority.
     if STATIC_DIR.is_dir():
