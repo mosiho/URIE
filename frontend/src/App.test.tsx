@@ -52,7 +52,17 @@ describe('URIE app', () => {
         name: /URIE remembers the conversation your CRM never heard/,
       }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /A CRM remembers fields/ })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', {
+        name: /High-value deals turn on details no database ever held/,
+      }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', {
+        name: /Keep the CRM your brokerage requires/,
+      }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/client conversations are never recorded/i)).toBeInTheDocument()
 
     const demoLinks = screen.getAllByRole('link', { name: /free demo/i })
     expect(demoLinks.length).toBeGreaterThanOrEqual(2)
