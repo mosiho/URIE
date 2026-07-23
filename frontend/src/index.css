@@ -1082,6 +1082,46 @@ textarea:focus-visible {
   color: rgba(255, 255, 255, 0.6);
 }
 
+.landing-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.landing-lang {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(8, 16, 13, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.landing-lang button {
+  min-height: 32px;
+  min-inline-size: 40px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.62);
+  background: transparent;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: color 160ms ease, background 160ms ease;
+}
+
+.landing-lang button:hover {
+  color: var(--white);
+}
+
+.landing-lang button.is-active {
+  color: var(--forest-900);
+  background: #e3c994;
+}
+
 .landing-pilot-link {
   min-height: 42px;
   display: inline-flex;
@@ -1918,6 +1958,13 @@ textarea:focus-visible {
   }
   .landing-nav .logo-copy small {
     display: none;
+  }
+  .landing-nav-actions {
+    gap: 8px;
+  }
+  .landing-lang button {
+    min-inline-size: 36px;
+    padding: 0 9px;
   }
   .landing-pilot-link {
     min-height: 40px;

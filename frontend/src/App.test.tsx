@@ -32,6 +32,7 @@ function jsonResponse(body: unknown, status = 200) {
 describe('URIE app', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/')
+    localStorage.clear()
     vi.restoreAllMocks()
   })
 
@@ -73,6 +74,34 @@ describe('URIE app', () => {
       )
     }
     expect(screen.getByText('+40 734 755 202')).toBeInTheDocument()
+  })
+
+  it('switches the landing page between English and Romanian', () => {
+    window.history.replaceState({}, '', '/about')
+    renderApp()
+
+    fireEvent.click(screen.getByRole('button', { name: 'RO' }))
+
+    expect(
+      screen.getByRole('heading', {
+        name: /URIE își amintește conversația pe care CRM-ul tău nu a auzit-o niciodată/,
+      }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Primește demonstrația gratuită pe WhatsApp/i })).toHaveAttribute(
+      'href',
+      expect.stringContaining('https://wa.me/40734755202?text='),
+    )
+    expect(screen.getByRole('link', { name: /Primește demonstrația gratuită pe WhatsApp/i })).toHaveAttribute(
+      'href',
+      expect.stringMatching(/demonstra/),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'EN' }))
+    expect(
+      screen.getByRole('heading', {
+        name: /URIE remembers the conversation your CRM never heard/,
+      }),
+    ).toBeInTheDocument()
   })
 
   it('signs in and opens the Today experience', async () => {
